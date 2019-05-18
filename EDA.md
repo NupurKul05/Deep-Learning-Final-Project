@@ -20,8 +20,8 @@
 * Q5. How can you add, remove or change features to get more out of the data? [thumb rule: more data = good]
 *    (Feature Engineering. This also includes converting categorical to numerical data.)
 * 1. Feature Contribution:- It is a way to figure out how much each feature influences the model. 
-* 2. relationship between variables and correlation between features.
+* 2. _relationship between variables and correlation between features._
 * 3. matplotlib and seaborn libraries. 
 * 4. Histograms (Seaborn version of histogram is density plot, sns.distplot) and Scatter Plots. Histogram for seeing the distribution of a particular variable, Scatter plot for seeing relationships *  between 2 or more variables.
-* 5. Heatmap (in seaborn lib) provides us with a numerical value of the correlation between each variable. 
-* Principal Component Analysis (PCA) is used to reduce the number of features to use and graphing the variance which gives us an idea of how many features we really need to represent our dataset fully.
+* 5._Heatmap (in seaborn lib) provides us with a numerical value of the correlation between each variable._
+* _Principal Component Analysis (PCA) is used to reduce the number of features to use and graphing the variance which gives us an idea of how many features we really need to represent our dataset fully._
