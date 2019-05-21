@@ -24,4 +24,4 @@
 * 3. matplotlib and seaborn libraries. 
 * 4. Histograms (Seaborn version of histogram is density plot, sns.distplot) and Scatter Plots. Histogram for seeing the distribution of a particular variable, Scatter plot for seeing relationships *  between 2 or more variables.
 * 5._Heatmap (in seaborn lib) provides us with a numerical value of the correlation between each variable._
-* _Principal Component Analysis (PCA) is used to reduce the number of features to use and graphing the variance which gives us an idea of how many features we really need to represent our dataset fully._
+* _Principal Component Analysis (PCA) is used to reduce the number of features to use and graphing the variance which gives us an idea of how many features we really need to represent our dataset fully._ - Ananya
