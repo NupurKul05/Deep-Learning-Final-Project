@@ -32,6 +32,21 @@ df2 = pd.read_csv('content_encoded_stage2.csv')
 
 print("Solid Item dataframe shape :", df1.shape)
 print("Solid Item dataframe columns :",df1.columns)
+df1.head(5)
+
+#A copy of the existing dataframe made for alteration purposes
+df1_new = df1.copy()
+
+# Type of the date id changed to datetime format
+df1_new['created_date_id'] = pd.to_datetime(df1_new['created_date_id'])
+
+# From the date id the date field is extracted for further grouping purposes
+df1_new['year'] = df1_new['created_date_id'].dt.year
+df1_new.head(5)
+df1_new.groupby('product_sid').apply(lambda x: x.sort_values(['year'], ascending = True))
+
+# Total units sold of a product for every year.
+product_count = df1_new.groupby(['year', 'product_sid']).size()
 
 print("Content dataframe shape :", df2.shape)
 print("Content dataframe columns :",df2.columns)
@@ -81,4 +96,8 @@ from sklearn.model_selection import train_test_split
 from keras.layers import Input, Dense
 from keras.models import Model
 
-)
+VALID_AND_TEST_SIZE=0.1
+rom sklearn.model_selection import train_test_split
+
+X_train, X_else, y_train, y_else = train_test_split(df3, df3["pm2.5"], test_size=VALID_AND_TEST_SIZE*2, shuffle=False)
+X_valid, X_test, y_valid, y_test = train_test_split(X_else, y_else, test_size=0.5, shuffle=False)
