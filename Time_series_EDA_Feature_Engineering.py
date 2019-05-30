@@ -16,11 +16,7 @@ import pandas as pd
 import sklearn as sk
 from scipy import stats
 import matplotlib.pyplot as plt
-from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.model_selection import train_test_split
-from sklearn import preprocessing
-from sklearn.preprocessing import LabelEncoder
-import seaborn as sns
 
 #%% Reading the datasets as two different dataframes
 
@@ -89,15 +85,211 @@ print(df3.isna().sum())
 
 print(df3.describe())
 
-#%% Dimensionality reduction
+#%% Partial Autocorrelation Plot
 
-from sklearn.preprocessing import minmax_scale
-from sklearn.model_selection import train_test_split
-from keras.layers import Input, Dense
-from keras.models import Model
+from statsmodels.graphics.tsaplots import plot_pacf
 
-VALID_AND_TEST_SIZE=0.1
-rom sklearn.model_selection import train_test_split
+#columns = [] #use this for speedup
+columns = ["sales_item_price", 'sales_voucher_created', 'sales_voucher',
+       'sales_value_created', 'sales_value','created_date_id', 'sales_item_price_created',
+       'days_since_first_sold', 'days_since_release', 'returned_date_id_0',
+       'returned_date_id_1']
 
-X_train, X_else, y_train, y_else = train_test_split(df3, df3["pm2.5"], test_size=VALID_AND_TEST_SIZE*2, shuffle=False)
+for col in columns:
+    plt.figure()
+    plot_pacf(df1_new[col].dropna(), lags=48, zero=False)
+    plt.title("Partial Autocorrelation PLot : " + str(col))
+    
+plt.show()
+
+#%% 
+
+from statsmodels.graphics.tsaplots import _prepare_data_corr_plot, _plot_corr
+import statsmodels.graphics.utils as utils
+from statsmodels.tsa.stattools import pacf
+
+def plot_pacf_drop(x, ax=None, lags=None, alpha=.05, method='ywunbiased',
+              use_vlines=True, title='Partial Autocorrelation', zero=True,
+              vlines_kwargs=None, drop_no=0, **kwargs):
+    
+    lags_orig=lags
+    fig, ax = utils.create_mpl_ax(ax)
+    vlines_kwargs = {} if vlines_kwargs is None else vlines_kwargs
+    lags, nlags, irregular = _prepare_data_corr_plot(x, lags, zero)
+    confint = None
+    if alpha is None:
+        acf_x = pacf(x, nlags=nlags, alpha=alpha, method=method)
+    else:
+        acf_x, confint = pacf(x, nlags=nlags, alpha=alpha, method=method)
+
+    if drop_no:
+        acf_x = acf_x[drop_no+1:]
+        confint = confint[drop_no+1:]
+        lags, nlags, irregular = _prepare_data_corr_plot(x, lags_orig-drop_no, zero)
+        
+    _plot_corr(ax, title, acf_x, confint, lags, False, use_vlines,
+               vlines_kwargs, **kwargs)
+
+    return fig
+
+    import matplotlib.pyplot as plt
+
+#columns = [] #use this for speedup
+columns = ["sales_item_price", 'sales_voucher_created', 'sales_voucher',
+       'sales_value_created', 'sales_value','created_date_id', 'sales_item_price_created',
+       'days_since_first_sold', 'days_since_release', 'returned_date_id_0',
+       'returned_date_id_1']
+
+for col in columns:
+
+    plt.figure()
+    plot_pacf_drop(df1_new[col].dropna(), lags=200, drop_no=3, zero=False)
+    plt.title("Partial Autocorrelation PLot : " + str(col))
+    
+plt.show()
+
+#%%
+
+#grouped = df1.groupby(['product_sid'])
+#l_grouped = list(grouped)
+#l_grouped[0][1]
+
+#l_grouped.product_sid.unique()
+
+
+#%% Split the data into training and test sets
+
+from seglearn.split import temporal_split
+
+X_train, X_else, y_train, y_else = train_test_split(df1_new, df1_new["sales_item_price_created"], test_size=0.2, shuffle=False)
 X_valid, X_test, y_valid, y_test = train_test_split(X_else, y_else, test_size=0.5, shuffle=False)
+
+#X_train, X_valid, y_train, y_valid = temporal_split(df1_new, df1_new["sales_item_price_created"], test_size=0.25)
+
+#normalizers = minmax_scale(X_train, y_train)
+#%% 
+
+TIME_WINDOW=100
+FORECAST_DISTANCE=24
+
+from seglearn.transform import FeatureRep, SegmentXYForecast, last
+
+segmenter = SegmentXYForecast(width=TIME_WINDOW, step=1, y_func=last, forecast=FORECAST_DISTANCE)
+
+X_train_rolled, y_train_rolled,_=segmenter.fit_transform([X_train.values],[y_train])
+
+X_train_rolled
+
+#%%
+
+X_train_rolled.shape
+
+shape = X_train_rolled.shape
+X_train_flattened = X_train_rolled.reshape(shape[0],shape[1]*shape[2])
+X_train_flattened.shape
+
+
+X_valid_rolled, y_valid_rolled,_=segmenter.fit_transform([X_valid.values],[y_valid])
+
+shape = X_valid_rolled.shape
+X_valid_flattened = X_valid_rolled.reshape(shape[0],shape[1]*shape[2])
+
+X_valid_flattened
+#%%
+
+from sklearn.metrics import mean_squared_error
+from math import sqrt
+from sklearn.preprocessing import MinMaxScaler
+import warnings
+from sklearn.exceptions import DataConversionWarning
+
+def evaluate_model(model, X_valid, y_valid_true):
+    predictions = model.predict(X_valid)
+    rms = sqrt(mean_squared_error(y_valid_true, predictions))
+    print("Root mean squared error on valid:",rms)
+    #normalized_rms = df1_new["sales_item_price_created"].inverse_transform(np.array([rms]).reshape(1, -1))[0][0]
+    #print("Root mean squared error on valid inverse transformed from normalization:",normalized_rms)
+    return rms
+
+#%% Dummy Regressor
+
+from sklearn.dummy import DummyRegressor
+
+dummy_model = DummyRegressor(strategy="mean", constant=None, quantile=None)
+
+dummy_model.fit(X_train_flattened,y_train_rolled)
+
+result = evaluate_model(dummy_model,X_valid_flattened,y_valid_rolled)
+
+#%% XGBoost
+
+import xgboost as xgb
+# If in trouble, use !pip install xgboost
+
+# XGBoost needs it's custom data format to run quickly
+dmatrix_train = xgb.DMatrix(data=X_train_flattened,label=y_train_rolled)
+dmatrix_valid = xgb.DMatrix(data=X_valid_flattened,label=y_valid_rolled)
+
+params = {'objective': 'reg:linear', 'eval_metric': 'rmse', 'n_estimators': 20}
+
+evallist = [(dmatrix_valid, 'eval'), (dmatrix_train, 'train')]
+
+num_round = 10 #Can easily overfit, experiment with it!
+
+xg_reg = xgb.train(params, dmatrix_train, num_round,evallist)
+
+result = evaluate_model(xg_reg,dmatrix_valid,y_valid_rolled)
+
+#%% LSTM
+
+LSTM_CELL_SIZE=350
+BATCH_SIZE = 300
+EPOCHS = 60
+DROPOUT_RATE=0
+
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import Dense, Dropout, CuDNNLSTM
+from tensorflow.keras import backend as be
+from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler
+
+column_count=len(X_train.columns) #Remember,column count before rolling...
+
+be.clear_session()
+
+# You might very well be needing it!
+# Remeber to save only what is worth it from validation perspective...
+# model_saver = ModelCheckpoint(...)
+
+# If you need it...
+#def schedule(epoch, lr):
+#    ...
+#    return lr
+
+#lr_scheduler = LearningRateScheduler(schedule)
+
+# Build your whole LSTM model here!
+model = Sequential()
+
+model.add(CuDNNLSTM(LSTM_CELL_SIZE, input_shape=(TIME_WINDOW,column_count),stateful=False))
+model.add(Dense(1, activation= "linear"))
+
+
+#For shape remeber, we have a variable defining the "window" and the features in the window...
+
+model.compile(loss='mean_squared_error', optimizer='sgd')
+# Fit on the train data
+# USE the batch size parameter!
+# Use validation data - warning, a tuple of stuff!
+# Epochs as deemed necessary...
+# You should avoid shuffling the data maybe.
+# You can use the callbacks for LR schedule or model saving as seems fit.
+history = model.fit(X_train_rolled, y_train_rolled, batch_size=BATCH_SIZE, epochs=EPOCHS,
+          validation_data=(X_valid_rolled ,y_valid_rolled), shuffle=False)
+
+# Plot the loss function of training and test sets
+plt.plot(history.history['loss'], label='train')
+plt.plot(history.history['val_loss'], label='test')
+plt.legend()
+plt.show()
+
+result = evaluate_model(model,X_valid_rolled ,y_valid_rolled)
