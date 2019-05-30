@@ -39,10 +39,14 @@ df1_new['created_date_id'] = pd.to_datetime(df1_new['created_date_id'])
 # From the date id the date field is extracted for further grouping purposes
 df1_new['year'] = df1_new['created_date_id'].dt.year
 df1_new.head(5)
-df1_new.groupby('product_sid').apply(lambda x: x.sort_values(['year'], ascending = True))
+#df1_new.groupby('product_sid').apply(lambda x: x.sort_values(['year'], ascending = True))
 
 # Total units sold of a product for every year.
-product_count = df1_new.groupby(['year', 'product_sid']).size()
+#product_count = df1_new.groupby(['year', 'product_sid']).size()
+
+# Total units of product sold added to new column sales_volume  
+df1_new['sales_volume'] = df1_new.groupby(['year','product_sid']).transform(np.size)
+df1_new.head(5)
 
 print("Content dataframe shape :", df2.shape)
 print("Content dataframe columns :",df2.columns)
